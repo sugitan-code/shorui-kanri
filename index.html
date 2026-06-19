@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>写真からカレンダー作成</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="panel panel-left">
+      <h1>写真からイベントを作成</h1>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="imageInput" accept="image/*" hidden />
+        <p>画像をドラッグ＆ドロップ</p>
+        <button id="selectButton" type="button">ファイルを選択</button>
+      </div>
+      <div class="preview-wrap">
+        <img id="previewImage" alt="読み取り対象の画像" />
+      </div>
+      <div class="actions">
+        <button id="ocrButton" type="button">OCRで読み取り</button>
+        <button id="resetButton" type="button" class="secondary">リセット</button>
+      </div>
+      <div class="status" id="status">画像を選んでください。</div>
+    </section>
+
+    <section class="panel panel-right">
+      <h2>イベント情報</h2>
+      <form id="eventForm">
+        <label>
+          <span>タイトル</span>
+          <input id="titleInput" type="text" />
+        </label>
+        <div class="row">
+          <label>
+            <span>日付</span>
+            <input id="dateInput" type="date" />
+          </label>
+          <label>
+            <span>開始時刻</span>
+            <input id="startTimeInput" type="time" />
+          </label>
+        </div>
+        <div class="row">
+          <label>
+            <span>終了時刻</span>
+            <input id="endTimeInput" type="time" />
+          </label>
+          <label>
+            <span>場所</span>
+            <input id="locationInput" type="text" />
+          </label>
+        </div>
+        <label>
+          <span>詳細</span>
+          <textarea id="detailsInput" rows="6"></textarea>
+        </label>
+      </form>
+      <div class="text-panel">
+        <div class="text-panel-header">
+          <h3>OCR結果</h3>
+          <button id="copyTextButton" type="button" class="secondary">本文をコピー</button>
+        </div>
+        <textarea id="ocrText" rows="12" placeholder="OCRで読み取った本文がここに表示されます"></textarea>
+      </div>
+      <div class="actions">
+        <button id="calendarButton" type="button">Google Calendarで作成</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
