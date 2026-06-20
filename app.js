@@ -53,44 +53,54 @@ function formatDateForInput(date) {
   return `${year}-${month}-${day}`;
 }
 
-function parseDateLikeText(text) {
-  const patterns = [
-    /(\d{4})[\/年-](\d{1,2})[\/月-](\d{1,2})日?/g,
-    /(\d{4})[\/年-](\d{1,2})[\/月-](\d{1,2})/g,
-    /(\d{1,2})[\/](\d{1,2})(?:[\/](\d{2,4}))?/g,
-  ];
+// 2桁年を西暦に変換する（70未満は2000年代、それ以外は1900年代）
+function normalizeYear(yearText) {
+  if (yearText.length === 2) {
+    const value = Number(yearText);
+    return value < 70 ? 2000 + value : 1900 + value;
+  }
+  return Number(yearText);
+}
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      const candidate = match[0];
-      const normalized = candidate.replace(/[年月]/g, '/').replace(/日/g, '');
-      const parts = normalized.split('/').map((part) => part.trim()).filter(Boolean);
-      if (parts.length >= 3) {
-        const year = parts[0].length === 2 ? (Number(parts[0]) < 70 ? 2000 + Number(parts[0]) : 1900 + Number(parts[0])) : Number(parts[0]);
-        const month = Number(parts[1]);
-        const day = Number(parts[2]);
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          return new Date(year, month - 1, day);
-        }
-      } else if (parts.length === 2) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = Number(parts[0]);
-        const day = Number(parts[1]);
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          return new Date(year, month - 1, day);
-        }
-      }
+// 範囲が妥当ならDateを返す。不正な月日ならnull
+function buildDate(year, month, day) {
+  if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+    return new Date(year, month - 1, day);
+  }
+  return null;
+}
+
+function parseDateLikeText(text) {
+  // YYYY/MM/DD・YYYY年MM月DD日 形式（年が先頭）
+  const yearFirst = text.match(/(\d{4})[\/年-](\d{1,2})[\/月-](\d{1,2})日?/);
+  if (yearFirst) {
+    const date = buildDate(Number(yearFirst[1]), Number(yearFirst[2]), Number(yearFirst[3]));
+    if (date) {
+      return date;
     }
   }
+
+  // M/D・M/D/YY(YY) 形式（年は末尾、省略時は今年）
+  const monthFirst = text.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if (monthFirst) {
+    const year = monthFirst[3] ? normalizeYear(monthFirst[3]) : new Date().getFullYear();
+    const date = buildDate(year, Number(monthFirst[1]), Number(monthFirst[2]));
+    if (date) {
+      return date;
+    }
+  }
+
   return null;
 }
 
 function parseTimeLikeText(text) {
   const timeMatch = text.match(/(\d{1,2})[:時](\d{1,2})(?:分)?/);
   if (timeMatch) {
-    return `${String(timeMatch[1]).padStart(2, '0')}:${String(timeMatch[2]).padStart(2, '0')}`;
+    const hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2]);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
   }
   return '';
 }
@@ -149,6 +159,28 @@ function applyHeuristics(text) {
   if (details) {
     detailsInput.value = details;
   }
+}
+
+// YYYY-MM-DD の翌日を YYYYMMDD 形式で返す
+function getNextDayCompact(date) {
+  const next = new Date(`${date}T00:00:00`);
+  next.setDate(next.getDate() + 1);
+  return formatDateForInput(next).replace(/-/g, '');
+}
+
+// Google Calendar の dates パラメータを組み立てる
+function buildCalendarDates(date, startTime, endTime) {
+  const compactDate = date.replace(/-/g, '');
+
+  if (startTime) {
+    const start = `${compactDate}T${startTime.replace(':', '')}00`;
+    // 終了時刻が空なら開始時刻と同じにする
+    const end = `${compactDate}T${(endTime || startTime).replace(':', '')}00`;
+    return `${start}/${end}`;
+  }
+
+  // 終日イベントは終了日が排他的なので翌日を指定する
+  return `${compactDate}/${getNextDayCompact(date)}`;
 }
 
 async function runOCR(imageFile) {
@@ -251,30 +283,11 @@ calendarButton.addEventListener('click', () => {
     return;
   }
 
-  let startDateTime;
-  let endDateTime;
-
-  if (startTime) {
-    startDateTime = `${date}T${startTime}:00`;
-    const end = endTime || startTime;
-    endDateTime = `${date}T${end}:00`;
-  } else {
-    startDateTime = `${date}`;
-    endDateTime = `${date}`;
-  }
-
-  const eventDate = startTime
-    ? `${date.replace(/-/g, '')}T${startTime.replace(':', '')}00`
-    : `${date.replace(/-/g, '')}`;
-  const endEventDate = endTime
-    ? `${date.replace(/-/g, '')}T${endTime.replace(':', '')}00`
-    : `${date.replace(/-/g, '')}`;
-
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: title,
-    dates: startTime ? `${eventDate}/${endEventDate}` : `${date.replace(/-/g, '')}/${date.replace(/-/g, '')}`,
-    details: details,
+    dates: buildCalendarDates(date, startTime, endTime),
+    details,
     location,
   });
 
