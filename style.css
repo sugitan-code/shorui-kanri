@@ -1,159 +1,601 @@
+/* =========================================================
+   栞 (shiori) — 和文具・エディトリアル
+   紙 × 墨 × 朱。明朝とゴシックで仕立てる
+   ========================================================= */
+
 :root {
-  font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-  color: #1f2937;
-  background: #f5f7fb;
+  /* 紙と墨 */
+  --paper:        #ece2cd;   /* 背景の生成り紙 */
+  --paper-deep:   #e3d6bb;   /* 影側の紙 */
+  --card:         #f6efe0;   /* 用紙(leaf)の面 */
+  --card-edge:    #d8c9aa;   /* 用紙の縁 */
+
+  --ink:          #211c15;   /* 主たる墨 */
+  --ink-soft:     #5c5040;   /* 副次の墨 */
+  --ink-faint:    #9c8d72;   /* 罫・補助 */
+
+  /* 朱と藍 */
+  --vermillion:      #c0442a;
+  --vermillion-deep: #99311c;
+  --indigo:          #2c3a52;
+
+  --line:      #cbbb9a;
+  --line-soft: #ddd0b4;
+
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body:    "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  --font-latin:   "Fraunces", Georgia, serif;
+
+  --shadow-leaf: 0 1px 0 rgba(255, 252, 244, 0.7) inset,
+                 0 18px 40px -24px rgba(33, 28, 21, 0.5);
+  --radius: 5px;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #eef4ff 0%, #f8fafc 100%);
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background:
+    radial-gradient(120% 80% at 12% -5%, #f3ead8 0%, rgba(243, 234, 216, 0) 55%),
+    radial-gradient(120% 90% at 100% 105%, #e0d2b4 0%, rgba(224, 210, 180, 0) 50%),
+    linear-gradient(175deg, var(--paper) 0%, var(--paper-deep) 100%);
+  background-attachment: fixed;
+  line-height: 1.7;
 }
 
-button,
-input,
-textarea {
-  font: inherit;
+/* ---- 紙のざらつき(グレイン) ---- */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-button {
-  cursor: pointer;
+/* ---- 透かしの大字 ---- */
+.watermark {
+  position: fixed;
+  right: -0.12em;
+  bottom: -0.28em;
+  z-index: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(18rem, 40vw, 38rem);
+  line-height: 0.8;
+  color: var(--ink);
+  opacity: 0.04;
+  pointer-events: none;
+  user-select: none;
 }
 
-.app-shell {
-  max-width: 1200px;
+/* =========================================================
+   マストヘッド
+   ========================================================= */
+.masthead {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 24px;
+  padding: clamp(36px, 6vw, 72px) clamp(22px, 5vw, 56px) clamp(20px, 3vw, 32px);
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.panel {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-  padding: 24px;
-}
-
-.panel h1,
-.panel h2,
-.panel h3 {
-  margin-top: 0;
-}
-
-.upload-area {
-  border: 2px dashed #94a3b8;
-  border-radius: 12px;
-  min-height: 140px;
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #f8fafc;
-  padding: 16px;
-  transition: border-color 0.2s ease;
+  gap: clamp(20px, 4vw, 44px);
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-.upload-area.dragover {
-  border-color: #2563eb;
-  background: #eff6ff;
+.masthead__mark { display: flex; }
+
+.seal {
+  display: grid;
+  place-items: center;
+  width: clamp(72px, 9vw, 104px);
+  height: clamp(72px, 9vw, 104px);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  color: var(--card);
+  background: var(--vermillion);
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 2px var(--vermillion-deep) inset,
+    0 0 0 5px var(--card) inset,
+    0 0 0 7px var(--vermillion) inset,
+    0 14px 26px -14px rgba(153, 49, 28, 0.8);
+  transform: rotate(-4deg);
+  animation: stamp 0.85s cubic-bezier(0.2, 0.8, 0.25, 1) 0.2s both;
 }
 
+.kicker {
+  margin: 0 0 0.5em;
+  font-family: var(--font-latin);
+  font-style: italic;
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vermillion-deep);
+}
+
+.masthead h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(3.6rem, 11vw, 6.4rem);
+  line-height: 0.92;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.h1-sub {
+  margin-left: 0.5em;
+  font-size: 0.22em;
+  font-weight: 500;
+  letter-spacing: 0.55em;
+  color: var(--ink-faint);
+  vertical-align: 0.55em;
+}
+
+.lede {
+  margin: 0.7em 0 0;
+  max-width: 34ch;
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.masthead__meta {
+  margin: 0;
+  font-family: var(--font-latin);
+  font-size: 0.8rem;
+  letter-spacing: 0.4em;
+  color: var(--ink-faint);
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  align-self: stretch;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   机(desk)と用紙(leaf)
+   ========================================================= */
+.desk {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(12px, 2vw, 24px) clamp(22px, 5vw, 56px) clamp(40px, 6vw, 72px);
+  display: grid;
+  grid-template-columns: 1.04fr 1fr;
+  gap: clamp(20px, 3vw, 40px);
+  align-items: start;
+}
+
+.leaf {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: var(--radius);
+  padding: clamp(24px, 3vw, 38px);
+  box-shadow: var(--shadow-leaf);
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* 用紙の左に綴じ代の朱罫 */
+.leaf::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 14px;
+  width: 2px;
+  background: var(--vermillion);
+  opacity: 0.45;
+  border-radius: 2px;
+}
+
+.leaf--capture { animation-delay: 0.12s; }
+.leaf--compose { animation-delay: 0.22s; }
+
+.leaf__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-left: 14px;
+  margin-bottom: clamp(18px, 2.4vw, 26px);
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid var(--line);
+}
+
+.ord {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 2.9rem);
+  line-height: 1;
+  color: var(--vermillion);
+  -webkit-text-stroke: 0.5px var(--vermillion-deep);
+}
+
+.leaf__head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.3rem, 2.6vw, 1.6rem);
+  letter-spacing: 0.12em;
+  color: var(--ink);
+}
+
+.leaf__sub {
+  margin: 0.1em 0 0;
+  font-family: var(--font-latin);
+  font-style: italic;
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* =========================================================
+   取り込み枠(dropframe)
+   ========================================================= */
+.dropframe {
+  position: relative;
+  margin-left: 14px;
+  min-height: 168px;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(45deg, rgba(192, 68, 42, 0.03) 0 10px, transparent 10px 20px),
+    var(--card);
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.dropframe:hover { border-color: var(--ink-faint); }
+
+.dropframe.dragover {
+  border-color: var(--vermillion);
+  background:
+    repeating-linear-gradient(45deg, rgba(192, 68, 42, 0.09) 0 10px, transparent 10px 20px),
+    #f7ece0;
+  transform: scale(1.01);
+}
+
+.dropframe__inner {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.dropframe__hint {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+/* 写真台紙の四隅マウント */
+.corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--vermillion);
+  transition: width 0.25s ease, height 0.25s ease, border-color 0.25s ease;
+}
+.corner--tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+.corner--tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+.corner--bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+.corner--br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+.dropframe.dragover .corner { width: 26px; height: 26px; border-color: var(--vermillion-deep); }
+
+/* ---- プレビュー ---- */
 .preview-wrap {
-  margin-top: 16px;
-  min-height: 300px;
-  background: #eef2ff;
-  border-radius: 12px;
+  position: relative;
+  margin: 16px 0 0 14px;
+  min-height: 220px;
+  border-radius: 4px;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background:
+    linear-gradient(var(--card-edge) 1px, transparent 1px) 0 0 / 100% 28px,
+    #efe6d3;
+  box-shadow: 0 0 0 1px var(--card-edge) inset, 0 8px 18px -16px rgba(33, 28, 21, 0.7);
+  display: grid;
+  place-items: center;
+}
+
+.preview-wrap__placeholder {
+  font-family: var(--font-latin);
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
 }
 
 .preview-wrap img {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-height: 420px;
+  height: 100%;
+  max-height: 440px;
   object-fit: contain;
-  display: none;
+  background: #efe6d3;
+  padding: 10px;
+  display: none; /* app.js が読み込み時に block へ切替 */
 }
 
+/* =========================================================
+   ボタン
+   ========================================================= */
 .actions {
   display: flex;
-  gap: 10px;
-  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 22px 0 0 14px;
+}
+.actions--end { justify-content: flex-end; }
+
+.btn {
+  position: relative;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.96rem;
+  letter-spacing: 0.06em;
+  padding: 12px 22px;
+  border: 1.5px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+              background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--indigo); outline-offset: 3px; }
+
+/* 墨ボタン */
+.btn--ink {
+  background: var(--ink);
+  color: var(--card);
+}
+.btn--ink:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px -12px rgba(33, 28, 21, 0.85);
 }
 
-button {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
+/* 朱印ボタン(主役) */
+.btn--seal {
+  background: var(--vermillion);
+  color: #fdf3e3;
+  box-shadow: 0 0 0 2px var(--card) inset, 0 0 0 3px var(--vermillion) inset;
+  padding: 13px 26px;
+}
+.btn--seal:hover {
+  background: var(--vermillion-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 2px var(--card) inset, 0 0 0 3px var(--vermillion-deep) inset,
+              0 14px 26px -12px rgba(153, 49, 28, 0.85);
 }
 
-button.secondary {
-  background: #e5e7eb;
-  color: #111827;
+/* 縁取りボタン */
+.btn--ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink-faint);
 }
+.btn--ghost:hover { border-color: var(--ink); background: rgba(33, 28, 21, 0.04); }
 
+/* 文字だけのボタン */
+.btn--quiet {
+  background: transparent;
+  color: var(--vermillion-deep);
+  padding: 6px 4px;
+  font-size: 0.85rem;
+}
+.btn--quiet::after {
+  content: "";
+  position: absolute;
+  left: 4px; right: 4px; bottom: 2px;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s ease;
+}
+.btn--quiet:hover::after { transform: scaleX(1); }
+
+/* ---- 状態表示 ---- */
 .status {
-  margin-top: 12px;
-  color: #475569;
-  font-size: 0.95rem;
+  margin: 16px 0 0 14px;
+  padding-left: 16px;
+  position: relative;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.status::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 8px;
+  height: 8px;
+  background: var(--vermillion);
+  border-radius: 50%;
 }
 
-form {
+/* =========================================================
+   記入用紙(form)
+   ========================================================= */
+.sheet {
   display: grid;
-  gap: 12px;
+  gap: 20px 18px;
+  padding-left: 14px;
 }
 
-label {
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field--full { grid-column: 1 / -1; }
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 16px;
+  grid-column: 1 / -1;
+}
+
+.field__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  padding-left: 14px;
+  position: relative;
+}
+.field__label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 7px;
+  height: 7px;
+  background: var(--vermillion);
+  transform: rotate(45deg);
+}
+
+.field input,
+.field textarea {
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--line);
+  border-radius: 0;
+  padding: 8px 2px;
+  accent-color: var(--vermillion);
+  transition: border-color 0.2s ease;
+}
+.field textarea { resize: vertical; }
+
+.field input::placeholder,
+.field textarea::placeholder { color: var(--ink-faint); }
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-bottom-color: var(--vermillion);
+}
+
+/* =========================================================
+   読み取り本文(notepanel)
+   ========================================================= */
+.notepanel { margin: 26px 0 0 14px; }
+
+.notepanel__head {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
 }
 
-label span {
+.notepanel__head h3 {
+  margin: 0;
+  font-family: var(--font-display);
   font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  color: var(--ink);
 }
 
-input,
-textarea {
+/* 罫線入りの原稿用紙風テキスト */
+.ruled {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
+  font: inherit;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 14px;
+  resize: vertical;
+  line-height: 28px;
+  background-color: #f8f2e4;
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 27px,
+    var(--line-soft) 27px,
+    var(--line-soft) 28px
+  );
+  background-attachment: local;
 }
+.ruled::placeholder { color: var(--ink-faint); }
+.ruled:focus { outline: none; border-color: var(--vermillion); }
 
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.text-panel {
-  margin-top: 16px;
-}
-
-.text-panel-header {
+/* =========================================================
+   奥付(footer)
+   ========================================================= */
+.colophon {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px clamp(22px, 5vw, 56px) 48px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 18px;
+  font-family: var(--font-latin);
+  font-style: italic;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.32s both;
+}
+.colophon__name { color: var(--vermillion-deep); }
+.colophon__rule { flex: 1; height: 1px; background: var(--line); }
+
+/* =========================================================
+   モーション
+   ========================================================= */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
 }
 
-textarea {
-  resize: vertical;
+@keyframes stamp {
+  0%   { opacity: 0; transform: scale(1.5) rotate(-12deg); }
+  55%  { opacity: 1; transform: scale(0.94) rotate(-2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-4deg); }
 }
 
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  *, .masthead, .leaf, .seal, .colophon {
+    animation: none !important;
+    transition: none !important;
   }
+}
+
+/* =========================================================
+   レスポンシブ
+   ========================================================= */
+@media (max-width: 900px) {
+  .desk { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .masthead {
+    grid-template-columns: auto 1fr;
+    row-gap: 18px;
+  }
+  .masthead__meta {
+    writing-mode: horizontal-tb;
+    grid-column: 1 / -1;
+    letter-spacing: 0.3em;
+  }
+  .field-row { grid-template-columns: 1fr 1fr; }
+  .field-row .field--full,
+  .field-row > .field:first-child { grid-column: 1 / -1; }
 }
