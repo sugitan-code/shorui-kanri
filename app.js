@@ -19,7 +19,7 @@ let currentImageFile = null;
 
 function setStatus(message, isError = false) {
   status.textContent = message;
-  status.style.color = isError ? '#99311c' : '#5c5040';
+  status.style.color = isError ? '#d9534f' : '#6b7280';
 }
 
 function resetForm() {

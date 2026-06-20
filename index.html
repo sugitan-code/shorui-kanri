@@ -3,75 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>栞 — 写真からカレンダー作成</title>
+  <title>写真からカレンダー作成</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Shippori+Mincho:wght@500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-  <div class="watermark" aria-hidden="true">暦</div>
-
-  <header class="masthead">
-    <div class="masthead__mark">
-      <span class="seal">栞</span>
-    </div>
-    <div class="masthead__text">
-      <p class="kicker">Paper&nbsp;to&nbsp;Plans · 写真から予定へ</p>
-      <h1>栞<span class="h1-sub">しおり</span></h1>
-      <p class="lede">紙のお知らせを写し取り、ひと息でカレンダーの予定に。</p>
-    </div>
-    <p class="masthead__meta">OCR — 暦 — 二〇二六</p>
+  <header class="header">
+    <h1>写真からカレンダー作成</h1>
+    <p class="header__sub">画像を読み取って、予定をかんたん登録</p>
   </header>
 
-  <main class="desk">
-    <section class="leaf leaf--capture">
-      <div class="leaf__head">
-        <span class="ord">壱</span>
-        <div class="leaf__title">
-          <h2>写し取る</h2>
-          <p class="leaf__sub">Capture</p>
-        </div>
-      </div>
+  <main class="layout">
+    <section class="card">
+      <h2 class="card__title">画像を取り込む</h2>
 
-      <div class="dropframe" id="uploadArea">
+      <div class="dropzone" id="uploadArea">
         <input type="file" id="imageInput" accept="image/*" hidden />
-        <span class="corner corner--tl" aria-hidden="true"></span>
-        <span class="corner corner--tr" aria-hidden="true"></span>
-        <span class="corner corner--bl" aria-hidden="true"></span>
-        <span class="corner corner--br" aria-hidden="true"></span>
-        <div class="dropframe__inner">
-          <p class="dropframe__hint">画像をここへ<br />ドラッグ＆ドロップ</p>
-          <button id="selectButton" type="button" class="btn btn--ghost">ファイルを選ぶ</button>
-        </div>
+        <p class="dropzone__hint">画像をドラッグ＆ドロップ</p>
+        <button id="selectButton" type="button" class="btn btn--outline">ファイルを選ぶ</button>
       </div>
 
-      <div class="preview-wrap">
-        <span class="preview-wrap__placeholder">— 画像を待っています —</span>
+      <div class="preview">
+        <span class="preview__placeholder">画像が表示されます</span>
         <img id="previewImage" alt="読み取り対象の画像" />
       </div>
 
       <div class="actions">
-        <button id="ocrButton" type="button" class="btn btn--ink">OCRで読み取る</button>
+        <button id="ocrButton" type="button" class="btn btn--primary">OCRで読み取る</button>
         <button id="resetButton" type="button" class="btn btn--ghost">リセット</button>
       </div>
 
       <p class="status" id="status">画像を選んでください。</p>
     </section>
 
-    <section class="leaf leaf--compose">
-      <div class="leaf__head">
-        <span class="ord">弐</span>
-        <div class="leaf__title">
-          <h2>仕立てる</h2>
-          <p class="leaf__sub">Compose</p>
-        </div>
-      </div>
+    <section class="card">
+      <h2 class="card__title">イベント情報</h2>
 
-      <form id="eventForm" class="sheet">
-        <label class="field field--full">
+      <form id="eventForm" class="form">
+        <label class="field">
           <span class="field__label">タイトル</span>
           <input id="titleInput" type="text" placeholder="イベント名" />
         </label>
@@ -89,11 +61,11 @@
             <input id="endTimeInput" type="time" />
           </label>
         </div>
-        <label class="field field--full">
+        <label class="field">
           <span class="field__label">場所</span>
           <input id="locationInput" type="text" placeholder="会場・住所" />
         </label>
-        <label class="field field--full">
+        <label class="field">
           <span class="field__label">詳細</span>
           <textarea id="detailsInput" rows="4"></textarea>
         </label>
@@ -101,23 +73,17 @@
 
       <div class="notepanel">
         <div class="notepanel__head">
-          <h3>読み取り本文</h3>
-          <button id="copyTextButton" type="button" class="btn btn--quiet">本文をコピー</button>
+          <span class="field__label">読み取り本文</span>
+          <button id="copyTextButton" type="button" class="btn btn--text">本文をコピー</button>
         </div>
-        <textarea id="ocrText" class="ruled" rows="8" placeholder="OCRで読み取った本文がここに現れます"></textarea>
+        <textarea id="ocrText" rows="7" placeholder="OCRで読み取った本文がここに表示されます"></textarea>
       </div>
 
       <div class="actions actions--end">
-        <button id="calendarButton" type="button" class="btn btn--seal">Google カレンダーで作成 →</button>
+        <button id="calendarButton" type="button" class="btn btn--primary">Google カレンダーで作成</button>
       </div>
     </section>
   </main>
-
-  <footer class="colophon">
-    <span class="colophon__name">栞 — shiori</span>
-    <span class="colophon__rule" aria-hidden="true"></span>
-    <span>OCR by Tesseract.js</span>
-  </footer>
 
   <script src="app.js"></script>
 </body>
