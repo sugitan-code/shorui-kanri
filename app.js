@@ -105,19 +105,36 @@ function parseTimeLikeText(text) {
   return '';
 }
 
+// タイトル先頭/末尾の絵文字誤読ノイズを除去する
+function stripTitleNoise(title) {
+  return (
+    title
+      .replace(/^.{1,2}[)\]）］]/, '')       // 先頭の誤読(例:「ご]」)を除去
+      .replace(/([一-鿿])[ァ-ヶー]$/, '$1') // 末尾の孤立カタカナを除去
+      .trim() || 'イベント'
+  );
+}
+
+// タイトル推定: 上部の行からイベント語を優先し、無ければ最初の意味のある行
 function inferTitle(text) {
-  const lines = text.split(/\n|\r/).map((line) => line.trim()).filter(Boolean);
-  const priorityPatterns = [
-    /イベント|会議|説明会|講演|面談|打ち合わせ|予約|試験|発表|セミナー|受付|訪問|出張|研修/
-  ];
+  const TOP_LINES = 4;        // タイトルは先頭付近にある前提
+  const MIN_TITLE_LENGTH = 2; // これより短い行はタイトルにしない
+  const eventKeywords = /会議|説明会|講演|面談|打ち合わせ|セミナー|試験|発表|受付|訪問|出張|研修|ランチ会|食事会|飲み会|歓迎会|送別会|懇親会|忘年会|新年会|パーティ|ライブ|コンサート|展示|フェア|大会/;
+  const isDataLine = (line) => /^[\d(（]/.test(line); // 日付・時刻などで始まる行
 
-  for (const line of lines) {
-    if (priorityPatterns.some((pattern) => pattern.test(line))) {
-      return line;
-    }
-  }
+  const top = text
+    .split(/\n|\r/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, TOP_LINES);
 
-  return lines[0] || 'イベント';
+  const candidate =
+    top.find((line) => eventKeywords.test(line)) ||                       // 上部のイベント語を優先
+    top.find((line) => !isDataLine(line) && line.length >= MIN_TITLE_LENGTH) || // 次に意味のある行
+    top[0] ||
+    'イベント';
+
+  return stripTitleNoise(candidate);
 }
 
 function inferLocation(text) {
@@ -273,27 +290,60 @@ async function runOCR(imageFile) {
   }
 }
 
-// OCR結果を整形する: CJK文字間の余分なスペースを除去し、行を整える
+// 丸数字(①〜⑳)・全角数字を半角数字へ変換する
+function normalizeDigits(text) {
+  return text
+    .replace(/[①-⑳]/g, (c) => String(c.charCodeAt(0) - 0x2460 + 1)) // ①=U+2460
+    .replace(/⓪/g, '0')
+    .replace(/[０-９]/g, (c) => String(c.charCodeAt(0) - 0xff10));    // 全角数字=U+FF10〜
+}
+
+// 折り返しで分断された行を連結する(タイトル・日付などの単独行は保持)
+function joinWrappedLines(lines) {
+  const MIN_WRAP_LENGTH = 10; // これより短い行は折り返しではなく独立した行とみなす
+  const terminator = /[。．.!?！？]$/;
+  const dataStart = /^[\d(（]/;
+
+  const joined = [];
+  lines.forEach((line, index) => {
+    const prev = joined[joined.length - 1];
+    const canJoin =
+      index > 0 &&
+      joined.length >= 2 &&             // 1行目(タイトル)には連結しない
+      prev.length >= MIN_WRAP_LENGTH &&
+      !terminator.test(prev) &&
+      !dataStart.test(prev) &&
+      !dataStart.test(line);
+    if (canJoin) {
+      joined[joined.length - 1] = prev + line;
+    } else {
+      joined.push(line);
+    }
+  });
+  return joined;
+}
+
+// OCR結果を整形する: 数字の正規化・余分なスペース除去・折り返しの連結
 function cleanOcrText(raw) {
   const cjk = '\\u3000-\\u303f\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uff00-\\uffef';
   // 後読み(?<=)は古いSafariで未対応のため、キャプチャグループで代用する
   const spaceBeforeCjk = new RegExp(`\\s+(?=[${cjk}])`, 'g');
   const spaceAfterCjk = new RegExp(`([${cjk}])\\s+`, 'g');
 
-  return raw
+  const lines = raw
     .split(/\r?\n/)
     .map((line) =>
-      line
+      normalizeDigits(line)
         .replace(spaceBeforeCjk, '')      // CJK文字の直前のスペースを除去
         .replace(spaceAfterCjk, '$1')     // CJK文字の直後のスペースを除去
         .replace(/(\d)\s*[:：]\s*(\d)/g, '$1:$2') // 時刻のコロン周りの空白を除去
         .replace(/(\d)\s+(?=\d)/g, '$1')  // 数字の間のスペースを除去
-        .replace(/[ \t　]{2,}/g, ' ') // 連続スペースを1つにまとめる
+        .replace(/[ \t　]{2,}/g, ' ')     // 連続スペースを1つにまとめる
         .trim()
     )
-    .filter(Boolean)
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n');          // 過剰な空行をまとめる
+    .filter(Boolean);
+
+  return joinWrappedLines(lines).join('\n');
 }
 
 async function handleImageSelect(file) {
