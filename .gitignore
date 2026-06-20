@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
+
+# OCR検証用のサンプル画像（個人情報を含むため公開しない）
+sample/

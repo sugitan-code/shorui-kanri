@@ -183,13 +183,77 @@ function buildCalendarDates(date, startTime, endTime) {
   return `${compactDate}/${getNextDayCompact(date)}`;
 }
 
+// データURLからImage要素を生成する
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
+    image.src = src;
+  });
+}
+
+// グレースケール変換の輝度係数(ITU-R BT.601)
+const LUMA_R = 0.299;
+const LUMA_G = 0.587;
+const LUMA_B = 0.114;
+
+const TARGET_MIN_WIDTH = 1600; // 小さい画像は拡大して認識率を上げる
+const MAX_PIXELS = 12_000_000; // 大きすぎる画像はモバイルのキャンバス上限対策で縮小する
+
+// OCR精度を上げる前処理: 拡大/縮小・グレースケール・ヒストグラム伸張
+async function preprocessImage(file) {
+  const dataUrl = await readFileAsDataURL(file);
+  const image = await loadImage(dataUrl);
+
+  let scale = image.width < TARGET_MIN_WIDTH ? TARGET_MIN_WIDTH / image.width : 1;
+  // 変換後のピクセル数が上限を超える場合は縮小する(空のキャンバス対策)
+  if (image.width * image.height * scale * scale > MAX_PIXELS) {
+    scale = Math.sqrt(MAX_PIXELS / (image.width * image.height));
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+
+  const context = canvas.getContext('2d');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+
+  // グレースケール値をR成分に一時保存しつつ最小・最大の明度を求める
+  let min = 255;
+  let max = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const gray = pixels[i] * LUMA_R + pixels[i + 1] * LUMA_G + pixels[i + 2] * LUMA_B;
+    pixels[i] = gray;
+    if (gray < min) min = gray;
+    if (gray > max) max = gray;
+  }
+
+  // ヒストグラムを0〜255へ伸張してコントラストを最大化する(均一画像はそのまま)
+  const range = max - min;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const gray = pixels[i];
+    const value = range > 0 ? ((gray - min) / range) * 255 : gray;
+    pixels[i] = pixels[i + 1] = pixels[i + 2] = value;
+  }
+  context.putImageData(imageData, 0, 0);
+
+  return canvas;
+}
+
 async function runOCR(imageFile) {
   if (!imageFile) {
     throw new Error('画像が選択されていません。');
   }
 
-  setStatus('OCRを実行しています...');
-  const { data } = await Tesseract.recognize(imageFile, 'jpn+eng', {
+  setStatus('画像を準備しています...');
+  const processedImage = await preprocessImage(imageFile);
+
+  const worker = await Tesseract.createWorker('jpn+eng', 1, {
     logger: (m) => {
       if (m.status === 'recognizing text') {
         setStatus(`OCR進行中: ${Math.round(m.progress * 100)}%`);
@@ -197,7 +261,39 @@ async function runOCR(imageFile) {
     },
   });
 
-  return data.text;
+  try {
+    await worker.setParameters({
+      tessedit_pageseg_mode: '3', // 自動レイアウト解析
+      preserve_interword_spaces: '1',
+    });
+    const { data } = await worker.recognize(processedImage);
+    return data.text;
+  } finally {
+    await worker.terminate();
+  }
+}
+
+// OCR結果を整形する: CJK文字間の余分なスペースを除去し、行を整える
+function cleanOcrText(raw) {
+  const cjk = '\\u3000-\\u303f\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uff00-\\uffef';
+  // 後読み(?<=)は古いSafariで未対応のため、キャプチャグループで代用する
+  const spaceBeforeCjk = new RegExp(`\\s+(?=[${cjk}])`, 'g');
+  const spaceAfterCjk = new RegExp(`([${cjk}])\\s+`, 'g');
+
+  return raw
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(spaceBeforeCjk, '')      // CJK文字の直前のスペースを除去
+        .replace(spaceAfterCjk, '$1')     // CJK文字の直後のスペースを除去
+        .replace(/(\d)\s*[:：]\s*(\d)/g, '$1:$2') // 時刻のコロン周りの空白を除去
+        .replace(/(\d)\s+(?=\d)/g, '$1')  // 数字の間のスペースを除去
+        .replace(/[ \t　]{2,}/g, ' ') // 連続スペースを1つにまとめる
+        .trim()
+    )
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');          // 過剰な空行をまとめる
 }
 
 async function handleImageSelect(file) {
@@ -248,7 +344,7 @@ ocrButton.addEventListener('click', async () => {
 
   try {
     const text = await runOCR(currentImageFile);
-    const cleanedText = text.replace(/\s+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    const cleanedText = cleanOcrText(text);
     ocrText.value = cleanedText;
     applyHeuristics(cleanedText);
     setStatus('OCR結果を反映しました。必要に応じて内容を修正してください。');
