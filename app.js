@@ -115,12 +115,49 @@ function stripTitleNoise(title) {
   );
 }
 
-// タイトル推定: 上部の行からイベント語を優先し、無ければ最初の意味のある行
+const MIN_TITLE_LENGTH = 2;      // これより短い行はタイトルにしない
+const MAX_TITLE_TOP_RATIO = 0.6; // タイトルは本文の上部60%以内にある前提
+
+// 日付・時刻など、データで始まる行か判定する
+function isDataLine(text) {
+  return /^[\d(（]/.test(normalizeDigits(text));
+}
+
+// 文字(かな・漢字・英数字)を含むか。記号・装飾のみの行を除外する
+function hasMeaningfulText(text) {
+  return /[\p{L}\p{N}]/u.test(text);
+}
+
+// タイトル推定(フォント): 上部で最も大きい文字の行を選ぶ。候補がなければ空文字
+function inferTitleByFont(lines) {
+  if (!lines.length) {
+    return '';
+  }
+  // 探索範囲は本文の縦スパンの上部割合で決める(1行のみでも除外しない)
+  const tops = lines.map((line) => line.top);
+  const minTop = Math.min(...tops);
+  const maxTop = Math.max(...tops);
+  const topLimit = minTop + (maxTop - minTop) * MAX_TITLE_TOP_RATIO;
+
+  const candidates = lines.filter(
+    (line) =>
+      line.top <= topLimit &&
+      line.text.length >= MIN_TITLE_LENGTH &&
+      !isDataLine(line.text) &&
+      hasMeaningfulText(line.text)
+  );
+  if (!candidates.length) {
+    return '';
+  }
+
+  const biggest = candidates.reduce((max, line) => (line.height > max.height ? line : max));
+  return stripTitleNoise(normalizeDigits(biggest.text));
+}
+
+// タイトル推定(テキスト): 上部のイベント語を優先し、無ければ最初の意味のある行
 function inferTitle(text) {
-  const TOP_LINES = 4;        // タイトルは先頭付近にある前提
-  const MIN_TITLE_LENGTH = 2; // これより短い行はタイトルにしない
+  const TOP_LINES = 4; // タイトルは先頭付近にある前提
   const eventKeywords = /会議|説明会|講演|面談|打ち合わせ|セミナー|試験|発表|受付|訪問|出張|研修|ランチ会|食事会|飲み会|歓迎会|送別会|懇親会|忘年会|新年会|パーティ|ライブ|コンサート|展示|フェア|大会/;
-  const isDataLine = (line) => /^[\d(（]/.test(line); // 日付・時刻などで始まる行
 
   const top = text
     .split(/\n|\r/)
@@ -129,7 +166,7 @@ function inferTitle(text) {
     .slice(0, TOP_LINES);
 
   const candidate =
-    top.find((line) => eventKeywords.test(line)) ||                       // 上部のイベント語を優先
+    top.find((line) => eventKeywords.test(line)) ||                            // 上部のイベント語を優先
     top.find((line) => !isDataLine(line) && line.length >= MIN_TITLE_LENGTH) || // 次に意味のある行
     top[0] ||
     'イベント';
@@ -153,7 +190,7 @@ function inferDetails(text) {
   return lines.filter((line) => !skipKeywords.test(line)).slice(0, 6).join('\n');
 }
 
-function applyHeuristics(text) {
+function applyHeuristics(text, lines) {
   const date = parseDateLikeText(text);
   if (date) {
     dateInput.value = formatDateForInput(date);
@@ -169,8 +206,8 @@ function applyHeuristics(text) {
     locationInput.value = location;
   }
 
-  const inferredTitle = inferTitle(text);
-  titleInput.value = inferredTitle;
+  // フォント最大の行を優先し、取れなければテキストから推定する
+  titleInput.value = inferTitleByFont(lines) || inferTitle(text);
 
   const details = inferDetails(text);
   if (details) {
@@ -262,6 +299,22 @@ async function preprocessImage(file) {
   return canvas;
 }
 
+// OCRのブロック構造から行リスト(テキスト・上端位置・高さ)を取り出す
+function extractLines(blocks) {
+  const lines = [];
+  (blocks || []).forEach((block) => {
+    (block.paragraphs || []).forEach((paragraph) => {
+      (paragraph.lines || []).forEach((line) => {
+        const text = line.text.trim();
+        if (text) {
+          lines.push({ text, top: line.bbox.y0, height: line.bbox.y1 - line.bbox.y0 });
+        }
+      });
+    });
+  });
+  return lines;
+}
+
 async function runOCR(imageFile) {
   if (!imageFile) {
     throw new Error('画像が選択されていません。');
@@ -283,8 +336,8 @@ async function runOCR(imageFile) {
       tessedit_pageseg_mode: '3', // 自動レイアウト解析
       preserve_interword_spaces: '1',
     });
-    const { data } = await worker.recognize(processedImage);
-    return data.text;
+    const { data } = await worker.recognize(processedImage, {}, { blocks: true });
+    return { text: data.text, lines: extractLines(data.blocks) };
   } finally {
     await worker.terminate();
   }
@@ -393,10 +446,10 @@ ocrButton.addEventListener('click', async () => {
   }
 
   try {
-    const text = await runOCR(currentImageFile);
+    const { text, lines } = await runOCR(currentImageFile);
     const cleanedText = cleanOcrText(text);
     ocrText.value = cleanedText;
-    applyHeuristics(cleanedText);
+    applyHeuristics(cleanedText, lines);
     setStatus('OCR結果を反映しました。必要に応じて内容を修正してください。');
   } catch (error) {
     setStatus(error.message, true);
